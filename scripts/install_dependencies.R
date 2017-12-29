@@ -6,5 +6,7 @@ if(!require("recount")){
 if(!require("DESeq2")){
   biocLite("DESeq2")
 }
+
 library(DESeq2)
+
   
