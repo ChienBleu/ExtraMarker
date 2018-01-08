@@ -1,11 +1,21 @@
-colData <- data.frame(rownames(count.table))
+colData <- data.frame(colnames(count.table))
 colData <- cbind(colData, disease.types)
 colnames(colData) <- c("Sample", "Disease.type")
-rownames(count.table) <- NULL
-dds <- DESeqDataSetFromMatrix(countData = t(count.table), colData = colData, design = ~ Disease.type)
+colnames(count.table) <- NULL
+dds <- DESeqDataSetFromMatrix(countData = count.table, colData = colData, design = ~ Disease.type)
 rm(colData)
 dds.norm <-  estimateSizeFactors(dds)
 sizeFactors(dds.norm)
+## Checking the normalization
+par(mfrow=c(2,2),cex.lab=0.7)
+boxplot(log2(counts(dds.norm)+epsilon),  col=colors, cex.axis=0.7, 
+        las=1, xlab="log2(counts)", horizontal=TRUE, main="Raw counts")
+boxplot(log2(counts(dds.norm, normalized=TRUE)+epsilon),  col=colors, cex.axis=0.7, 
+        las=1, xlab="log2(normalized counts)", horizontal=TRUE, main="Normalized counts") 
+plotDensity(log2(counts(dds.norm)+epsilon),  col=colors, 
+            xlab="log2(counts)", cex.lab=0.7, panel.first=grid()) 
+plotDensity(log2(counts(dds.norm, normalized=TRUE)+epsilon), col=colors, 
+            xlab="log2(normalized counts)", cex.lab=0.7, panel.first=grid()) 
 ## Computing mean and variance
 norm.counts <- counts(dds.norm, normalized=TRUE)
 mean.counts <- rowMeans(norm.counts)
