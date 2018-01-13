@@ -1,8 +1,8 @@
 colData <- data.frame(colnames(count.table))
-colData <- cbind(colData, disease.types)
-colnames(colData) <- c("Sample", "Disease.type")
+colData <- cbind(colData, phenotypes)
+colnames(colData) <- c("Sample", "Phenotype")
 colnames(count.table) <- NULL
-dds <- DESeqDataSetFromMatrix(countData = count.table, colData = colData, design = ~ Disease.type)
+dds <- DESeqDataSetFromMatrix(countData = count.table, colData = colData, design = ~ Phenotype)
 rm(colData)
 dds.norm <-  estimateSizeFactors(dds)
 sizeFactors(dds.norm)
@@ -16,6 +16,7 @@ plotDensity(log2(counts(dds.norm)+epsilon),  col=colors,
             xlab="log2(counts)", cex.lab=0.7, panel.first=grid()) 
 plotDensity(log2(counts(dds.norm, normalized=TRUE)+epsilon), col=colors, 
             xlab="log2(normalized counts)", cex.lab=0.7, panel.first=grid()) 
+par(mfrow=c(1,1),cex.lab=1)
 ## Computing mean and variance
 norm.counts <- counts(dds.norm, normalized=TRUE)
 mean.counts <- rowMeans(norm.counts)

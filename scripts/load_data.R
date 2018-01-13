@@ -1,6 +1,6 @@
 library(recount)
 library(DESeq2)
-project.id <- 'SRP033725'
+project.id <- 'SRP033248'
 # Downloading the files
 if(!file.exists(file.path(project.id, 'rse_gene.Rdata'))){
   print("Downloading the study file.")

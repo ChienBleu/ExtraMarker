@@ -1,5 +1,5 @@
 # Creating a bar plot representing all the reads per sample
-col.diseases <- c("Control"="cadetblue", "BD"="tomato")
+col.diseases <- c("normal"="cadetblue", "psoriasis"="tomato")
 colors <- col.diseases[as.vector(disease.types)]
 barplot(colSums(count.table)/1000000, 
         main="Total number of reads per sample (million)",

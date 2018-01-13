@@ -1,0 +1,145 @@
+---
+title: "ASG_Project"
+author: "Thomas Dechatre and Zacharie Ménétrier"
+date: "January 13, 2018"
+output: html_document
+references:
+- id: ref
+  author:
+  - family: Labadorf
+    given: A
+  - family: Lagomarsino
+    given: V
+  - family: Latourelle
+    given: JC
+  title: mRNA-Seq Expression profiling of human post-mortem BA9 brain tissue for Huntington''s Disease and neurologically normal individuals
+  type: article-journal
+  issued:
+  year: 2015
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Psoriasis and gene expression
+
+"Huntington's Disease (HD) is a devastating neurodegenerative disorder that is caused by an expanded CAG trinucleotide repeat in the Huntingtin (HTT) gene." [@ref] 
+By obtaining over 600 million qualified reads from 49 healthy controls and 20 Huntington's biopsis, [@ref] have generated a complete small RNA profile in normal and diseased human brain, with particular emphasis on miRNAs.
+
+In the first part of this project we will apply a differential expression gene analysis in order to discover some genes statistically implied in psoriasis.
+In the second part, two machine learning methods will be evaluated to classify healthy control from psoriatic skin gene expression. We will also try to demonstrate the pertinence of some feature selections methods.
+
+### Setting a path on your computer
+
+In order to download some files, a path must be specified for the rest of the project to work correctly.
+
+```{r}
+setwd("/home/zac/Desktop/ExtraMarker/")
+```
+
+
+### Downloading the study
+
+The study results can be found on the recount database. The id of this study under the recount database is **SRP007825**. We will use some methods of the recount R package in order to facilitate the loading of the count table. The recount package can be found under the bioconductor software set.
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+# Installing the recount R package
+source("https://bioconductor.org/biocLite.R")
+if(!require("recount")){
+  biocLite("recount")
+}
+library(recount)
+# Downloading the study files
+project.id <- 'SRP051844'
+if(!file.exists(file.path(project.id, 'rse_gene.Rdata'))){
+  download_study(project.id)
+}
+```
+
+The two things we will need out of the study is the count table of RNA reads and the type (control or disease) for each samples.
+
+```{r load data}
+# Load the rse data
+load(file.path(project.id, 'rse_gene.Rdata'))
+# Load the characteristics of each sample
+geochar <- lapply(split(colData(rse_gene), seq_len(nrow(colData(rse_gene)))), recount::geo_characteristics)
+# Get the phenotypes of interest
+phenotypes <- unlist(as.factor(unlist(lapply(geochar, "[", 2))))
+# Create the DESeq2 object
+rse <- scale_counts(rse_gene)
+# The count table is created as a matrix of count
+count.table <- as.matrix(assay(rse))
+```
+
+Now we would like to know the number of samples and genes. But also the number of control and test samples.
+
+```{r}
+# Number of samples
+print("Number of samples")
+ncol(count.table)
+print("Number of genes")
+nrow(count.table)
+print("Number of control samples")
+sum(phenotypes == "Neurologically normal")
+print("Number of Huntington samples")
+sum(phenotypes == "Huntington's Disease")
+```
+
+Here we see that there is more psoriasis phenotypes than control samples by a factor of approximately 2.5.
+
+### First glance at the data
+
+We will now try to see some interesting statistics about the loaded tables.
+The first thing we would like to know is the number of read for each sample.
+
+```{r barplot}
+# A color is assigned to each condition
+col.phenotypes <- c("Neurologically normal"="cadetblue", "Huntington's Disease"="tomato")
+colors <- col.phenotypes[as.vector(phenotypes)]
+# Creation of the bar plot
+barplot(colSums(count.table)/1000000, 
+        main="Total number of reads per sample (million)",
+        col=colors,
+        border = "white",
+        #        names.arg = "", 
+        las=1,  horiz=TRUE,
+        ylab="Samples", cex.names=0.2,
+        xlab="Million counts")
+```
+
+Here we see that the number of reads per sample is rather consistent among samples.
+
+It would be important to visualize the distribution of number of reads for gene expression. However most genes show near zero counts, this is why the log2 transformed table is used to show such distribution.
+
+```{r histogram}
+# Creating an histogram of log2 counts per gene
+hist(as.matrix(log2(count.table + 1)), col="slategray", border="white",
+     main="Log2-transformed counts per gene", xlab="log2(counts+1)", ylab="Number of genes", 
+     las=1, cex.axis=0.7)
+```
+
+A box plot of the samples could determine if a normalisation step is necessary.
+
+```{r}
+boxplot(log2(count.table+ 1), col=colors, pch=".", 
+        horizontal=TRUE, cex.axis=0.5,
+        las=1, ylab="Samples", xlab="log2(Counts +1)")
+```
+
+Here we see the expression of gene for each sample show no strong differences, thus avoiding the need of a normalisation step.
+
+### Elimination of undected genes
+
+```{r elimination of undected genes}
+print("Number of genes before removal of zero counts.")
+nrow(count.table)
+reduced.count.table <- count.table[rowSums(count.table) > 0,]
+print("Number of genes after removal of zero counts.")
+nrow(reduced.count.table)
+```
+
+Eliminating undected genes has removed approximately 7000 genes from the data.
+
+### Normalisation of the data
+

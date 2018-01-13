@@ -8,6 +8,8 @@ if(!require("DESeq2")){
 if(!require("affy")){
   biocLite("affy")
 }
-
+if(!require("caret")){
+  install.packages("caret")
+}
 
 

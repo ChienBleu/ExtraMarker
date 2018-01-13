@@ -11,7 +11,7 @@ all.data <- data.frame(t(log.count.table))
 mean.error.rates <- c()
 var.error.rates <- c()
 gene.number <- 2
-for(i in 1:12){
+for(i in 1:5){
   error <- c()
   print(gene.number)
   for(j in 1:20){
