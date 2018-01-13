@@ -38,6 +38,9 @@ In order to download some files, a path must be specified for the rest of the pr
 setwd("/home/zac/Desktop/ExtraMarker/")
 ```
 
+## Differential expression analysis
+
+In this part of the study we will apply a differential expression analysis to our dataset. We will first get some statistics about the data before normalizing the counts and try to apply a functional enrichment methods to get some genes implied in Huntigton's disease.
 
 ### Downloading the study
 
@@ -272,7 +275,45 @@ heatmap.2(as.matrix(count.table.kept),
           cexCol=0.7)
 ```
 
+## Supervised classification
 
+In this part of the study we will compare two machine learning models. We will demonstrate the importance of dimensionality and feature selection.
+
+To work with machine learning and feature selection, a data frame should be created that contains all the variables normalized and transformed with a logarithmic function.
+
+```{r}
+all.data <- data.frame(t(log2(counts(dds.norm, normalized=TRUE) + 1)))
+```
+
+### Feature selection
+
+Our data frame contains more than 51000 genes which are the descriptive variables of our set. For a lot of machine learning models, it is too much and may lead to overfitting, and so it is important to try to reduce the number of features. We will try to apply two feature selection methods, variance filter and PCA to reduce the number of descriptive variables.
+
+#### Filter by variance
+
+```{r}
+var.per.gene <- apply(all.data, 2, var)
+hist(var.per.gene, breaks=100, col="#BBFFDD", main="Variance per gene", xlab="Variance", ylab="Number of genes")
+```
+
+
+```{r}
+## Create a data frame to store gene values and ranks 
+## for different selection criteria.
+gene.ranks <- data.frame(var=var.per.gene)
+## Beware, we rank according to minus variance, because 
+## we want to associate the lowest ranks to the highest variances
+gene.ranks$var.rank <- rank(-gene.ranks$var, ties.method='random')
+genes.by.decr.var <- sort(var.per.gene,decreasing=TRUE)
+## Select the gene with the highest variance
+maxvar.g1 <- names(genes.by.decr.var[1])
+## Select the second gene withthe highest variance
+maxvar.g2 <- names(genes.by.decr.var[2])
+## Plot the expression profiles of the two genes with highest variance
+x <- as.vector(all.data[,maxvar.g1])
+y <- as.vector(all.data[,maxvar.g2])
+plot(x,y, , pch = 19, col = colors, xlab=paste('gene', maxvar.g1), ylab=paste('gene', maxvar.g2))
+```
 
 
 

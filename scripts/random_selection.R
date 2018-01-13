@@ -2,10 +2,10 @@ library(MASS)
 library(caret)
 library(randomForest)
 
-n.samples <- length(disease.types)
+n.samples <- length(phenotypes)
 
 # Creation of the data frame
-all.data <- data.frame(t(log.count.table))
+all.data <- data.frame(t(log2(counts(dds.norm, normalized=TRUE) + 1)))
 
 # Test without feature selection
 mean.error.rates <- c()
@@ -14,11 +14,11 @@ gene.number <- 2
 for(i in 1:5){
   error <- c()
   print(gene.number)
-  for(j in 1:20){
+  for(j in 1:30){
     print(j)
     # randomly select 10000 genes
     reduce.data <- all.data[, sample(colnames(all.data), gene.number)]
-    reduce.data$class <- disease.types
+    reduce.data$class <- phenotypes
     # Partition of training and testing set
     training.samples <- sample(seq_len(n.samples), size = n.samples * 0.66)
     train <- reduce.data[training.samples, ]
