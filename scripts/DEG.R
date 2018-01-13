@@ -62,3 +62,41 @@ text(res.DESeq2$log2FoldChange[gn.selected],
 ## Genes with adjusted p-values below 1% are shown
 plotMA(res.DESeq2, colNonSig = "blue")
 abline(h=c(-1:1), col="red")
+
+
+
+if(!require("gplots")){
+  install.packages("gplots")
+}
+library("gplots")
+## We select gene names based on FDR (1%)
+gene.kept <- rownames(res.DESeq2)[res.DESeq2$padj <= alpha & !is.na(res.DESeq2$padj)]
+## We retrieve the normalized counts for gene of interest
+count.table.kept <- log2(count.table + 1)[gene.kept, ]
+## Perform the hierarchical clustering with
+## A distance based on Pearson-correlation coefficient
+## and average linkage clustering as agglomeration criteria
+heatmap.2(as.matrix(count.table.kept), 
+          scale="row", 
+          hclust=function(x) hclust(x,method="average"), 
+          distfun=function(x) as.dist((1-cor(t(x)))/2), 
+          trace="none", 
+          density="none", 
+          labRow="",
+          cexCol=0.7)
+
+
+
+if(!require("gProfileR")){
+  install.packages("gProfileR")
+}
+library("gProfileR")
+res.DESeq2.df <- na.omit(data.frame(res.DESeq2))
+induced.sign <- rownames(res.DESeq2.df)[res.DESeq2.df$log2FoldChange >= 2 &  res.DESeq2.df$padj < alpha]
+# head(induced.sign)
+# names(term.induced)
+term.induced <- gprofiler(query=induced.sign, organism="hsapiens")
+term.induced <- term.induced[order(term.induced$p.value),]
+# term.induced$p.value
+term.induced[1:10]
+

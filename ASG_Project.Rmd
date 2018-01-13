@@ -22,13 +22,13 @@ references:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Psoriasis and gene expression
+## Huntigton's disease and gene expression
 
 "Huntington's Disease (HD) is a devastating neurodegenerative disorder that is caused by an expanded CAG trinucleotide repeat in the Huntingtin (HTT) gene." [@ref] 
-By obtaining over 600 million qualified reads from 49 healthy controls and 20 Huntington's biopsis, [@ref] have generated a complete small RNA profile in normal and diseased human brain, with particular emphasis on miRNAs.
 
-In the first part of this project we will apply a differential expression gene analysis in order to discover some genes statistically implied in psoriasis.
-In the second part, two machine learning methods will be evaluated to classify healthy control from psoriatic skin gene expression. We will also try to demonstrate the pertinence of some feature selections methods.
+The study contains 49 control samples and 20 samples with Huntigton's disease, for a total of more than 58000 variables accounted.
+In the first part of this project we will apply a differential expression gene analysis in order to discover some genes statistically implied in Huntington's disease.
+In the second part, two machine learning methods will be evaluated to classify healthy control from tested gene expression. We will also try to demonstrate the pertinence of some feature selections methods.
 
 ### Setting a path on your computer
 
@@ -72,22 +72,6 @@ rse <- scale_counts(rse_gene)
 count.table <- as.matrix(assay(rse))
 ```
 
-Now we would like to know the number of samples and genes. But also the number of control and test samples.
-
-```{r}
-# Number of samples
-print("Number of samples")
-ncol(count.table)
-print("Number of genes")
-nrow(count.table)
-print("Number of control samples")
-sum(phenotypes == "Neurologically normal")
-print("Number of Huntington samples")
-sum(phenotypes == "Huntington's Disease")
-```
-
-Here we see that there is more psoriasis phenotypes than control samples by a factor of approximately 2.5.
-
 ### First glance at the data
 
 We will now try to see some interesting statistics about the loaded tables.
@@ -127,19 +111,138 @@ boxplot(log2(count.table+ 1), col=colors, pch=".",
         las=1, ylab="Samples", xlab="log2(Counts +1)")
 ```
 
-Here we see the expression of gene for each sample show no strong differences, thus avoiding the need of a normalisation step.
+Here we see the expression of genes for each sample show no strong differences, the normalisation step should only slightly change our data.
 
 ### Elimination of undected genes
 
 ```{r elimination of undected genes}
-print("Number of genes before removal of zero counts.")
-nrow(count.table)
 reduced.count.table <- count.table[rowSums(count.table) > 0,]
-print("Number of genes after removal of zero counts.")
+nrow(count.table)
 nrow(reduced.count.table)
 ```
 
 Eliminating undected genes has removed approximately 7000 genes from the data.
 
-### Normalisation of the data
+### Differential expression analysis
+
+To be able to perform a differential expression analysis we will load the DESeq2 R package which contains functions that will help us.
+
+```{r}
+if(!require("DESeq2")){
+  biocLite("DESeq2")
+}
+library(DESeq2)
+```
+
+After that, a DESeqDataSet object must be created from our count table.
+
+```{r}
+# Creation of a data frame that will contains the informations of the study
+colData <- data.frame(colnames(reduced.count.table))
+colData <- cbind(colData, phenotypes)
+colnames(colData) <- c("Sample", "Phenotype")
+# The column names of the count table are set to null to avoid an error
+colnames(reduced.count.table) <- NULL
+dds <- DESeqDataSetFromMatrix(countData = reduced.count.table, colData = colData, design = ~ Phenotype)
+# The column names of the count table are reset
+colnames(reduced.count.table) <- colnames(count.table)
+# Estimation of the size factor for each sample
+dds.norm <-  estimateSizeFactors(dds)
+# Creation of a barplot that show the size factor for each sample
+barplot(sizeFactors(dds.norm), 
+        main="Size factor for each sample",
+        col=colors,
+        border = "white",
+        #        names.arg = "", 
+        las=1,  horiz=TRUE,
+        ylab="Samples", cex.names=0.2,
+        xlab="Size factors")
+```
+
+Here we see the size factors for each sample is very close to 1. That means normalisation between samples will not greatly change the number of counts.
+
+We will now see some plots of the data before and after the normalisation to see what has changed.
+
+```{r}
+## Checking the normalization
+par(mfrow=c(1,2),cex.lab=0.7)
+boxplot(log2(counts(dds.norm) + 1),  col=colors, cex.axis=0.7, 
+        las=1, xlab="log2(counts)", horizontal=TRUE, main="Raw counts")
+boxplot(log2(counts(dds.norm, normalized=TRUE) + 1),  col=colors, cex.axis=0.7, 
+        las=1, xlab="log2(normalized counts)", horizontal=TRUE, main="Normalized counts") 
+par(mfrow=c(1,1),cex.lab=1)
+```
+
+The mean and the variance are not linearly related.
+
+```{r}
+## Computing mean and variance
+norm.counts <- counts(dds.norm, normalized=TRUE)
+mean.counts <- rowMeans(norm.counts)
+variance.counts <- apply(norm.counts, 1, var)
+## Mean and variance relationship
+mean.var.col <- densCols(x=log2(mean.counts), y=log2(variance.counts))
+plot(x=log2(mean.counts), y=log2(variance.counts), pch=16, cex=0.5, 
+     col=mean.var.col, main="Mean-variance relationship",
+     xlab="Mean log2(normalized counts) per gene",
+     ylab="Variance of log2(normalized counts)",
+     panel.first = grid())
+abline(a=0, b=1, col="brown")
+```
+
+```{r}
+## Performing estimation of dispersion parameter
+dds.disp <- estimateDispersions(dds.norm)
+## A diagnostic plot which
+## shows the mean of normalized counts (x axis)
+## and dispersion estimate for each genes
+plotDispEsts(dds.disp)
+#pvalues
+alpha <- 0.0001
+wald.test <- nbinomWaldTest(dds.disp)
+res.DESeq2 <- results(wald.test, alpha=alpha, pAdjustMethod="BH")
+res.DESeq2 <- res.DESeq2[order(res.DESeq2$padj),]
+head(res.DESeq2)
+## Draw an histogram of the p-values
+hist(res.DESeq2$padj, breaks=20, col="grey", main="DESeq2 p-value distribution", xlab="DESeq2 P-value", ylab="Number of genes")
+#volcano  plot
+alpha <- 0.01 # Threshold on the adjusted p-value
+cols <- densCols(res.DESeq2$log2FoldChange, -log10(res.DESeq2$pvalue))
+plot(res.DESeq2$log2FoldChange, -log10(res.DESeq2$padj), col=cols, panel.first=grid(),
+     main="Volcano plot", xlab="Effect size: log2(fold-change)", ylab="-log10(adjusted p-value)",
+     pch=20, cex=0.6)
+abline(v=0)
+abline(v=c(-1,1), col="brown")
+abline(h=-log10(alpha), col="brown")
+gn.selected <- abs(res.DESeq2$log2FoldChange) > 2 & res.DESeq2$padj < alpha 
+## Draw a MA plot.
+## Genes with adjusted p-values below 1% are shown
+plotMA(res.DESeq2, colNonSig = "blue")
+abline(h=c(-1:1), col="red")
+```
+
+```{r}
+if(!require("gplots")){
+  install.packages("gplots")
+}
+library("gplots")
+```
+
+```{r}
+## We select gene names based on FDR (1%)
+gene.kept <- rownames(res.DESeq2)[res.DESeq2$padj <= alpha & !is.na(res.DESeq2$padj)]
+## We retrieve the normalized counts for gene of interest
+count.table.kept <- log2(count.table + 1)[gene.kept, ]
+## Perform the hierarchical clustering with
+## A distance based on Pearson-correlation coefficient
+## and average linkage clustering as agglomeration criteria
+heatmap.2(as.matrix(count.table.kept), 
+          scale="row", 
+          hclust=function(x) hclust(x,method="average"), 
+          distfun=function(x) as.dist((1-cor(t(x)))/2), 
+          trace="none", 
+          density="none", 
+          labRow="",
+          cexCol=0.7)
+```
 
