@@ -94,6 +94,32 @@ barplot(colSums(count.table)/1000000,
 
 Here we see that the number of reads per sample is rather consistent among samples.
 
+```{r Computation for the raw counts}
+print("Computing Raw parameters")
+moyenneRaw <- colMeans(count.table)
+medianeRaw <- colMedians(count.table)
+maxRaw <- colMaxs(count.table)
+minRaw <- colMins(count.table)
+quantileRaw <- colQuantiles(count.table)
+zeroRaw <- colCounts(count.table, value = 0)
+dataRawStatistics <- data.frame(moyenne= moyenneRaw, mediane = medianeRaw, quartile0 = quantileRaw[,1], quartile25 = quantileRaw[,2], quartile50 = quantileRaw[,3], quartile75 = quantileRaw[,4], quartile100 = quantileRaw[,5] ,max = maxRaw, min = minRaw, NombreZeros = zeroRaw, row.names = colnames(count.table))
+```
+
+Summary of the statistics per samples of the raw counts into the dataframe named "dataRawStatistics".
+```{r Computation the log2-transformed counts}
+print("log-2 transformation of the data")
+log2count.table <- log2(count.table+1)
+print("Computing log2-transformed parameters")
+moyenneLog <- colMeans(log2count.table)
+medianeLog <- colMedians(log2count.table)
+maxLog <- colMaxs(log2count.table)
+minLog <- colMins(log2count.table)
+quantileLog <- colQuantiles(log2count.table)
+zeroLog <- colCounts(log2count.table, value = 0)
+dataLogStatistics <- data.frame(moyenne= moyenneLog, mediane = medianeLog, quartile0 = quantileLog[,1], quartile25 = quantileLog[,2], quartile50 = quantileLog[,3], quartile75 = quantileLog[,4], quartile100 = quantileLog[,5] ,max = maxRaw, min = minLog,NombreZeros = zeroLog, row.names = colnames(log2count.table))
+```
+Summary of the statitics of the log2-transformed counts into the dataframe named "dataLogStatistics".
+
 It would be important to visualize the distribution of number of reads for gene expression. However most genes show near zero counts, this is why the log2 transformed table is used to show such distribution.
 
 ```{r histogram}
@@ -246,30 +272,7 @@ heatmap.2(as.matrix(count.table.kept),
           cexCol=0.7)
 ```
 
-### Computation of summary statistics
-```{r Computation for the raw counts}
-print("Computing Raw parameters")
-moyenneRaw <- colMeans(count.table)
-medianeRaw <- colMedians(count.table)
-maxRaw <- colMaxs(count.table)
-minRaw <- colMins(count.table)
-quantileRaw <- colQuantiles(count.table)
-zeroRaw <- colCounts(count.table, value = 0)
-dataRawStatistics <- data.frame(moyenne= moyenneRaw, mediane = medianeRaw, quartile0 = quantileRaw[,1], quartile25 = quantileRaw[,2], quartile50 = quantileRaw[,3], quartile75 = quantileRaw[,4], quartile100 = quantileRaw[,5] ,max = maxRaw, min = minRaw, NombreZeros = zeroRaw, row.names = colnames(count.table))
-```
-Summary of the statistics per samples of the raw counts into the dataframe named "dataRawStatistics".
-```{r Computation the log2-transformed counts}
-print("log-2 transformation of the data")
-log2count.table <- log2(count.table+epsilon)
-print("Computing log2-transformed parameters")
-moyenneLog <- colMeans(log2count.table)
-medianeLog <- colMedians(log2count.table)
-maxLog <- colMaxs(log2count.table)
-minLog <- colMins(log2count.table)
-quantileLog <- colQuantiles(log2count.table)
-zeroLog <- colCounts(log2count.table, value = 0)
-dataLogStatistics <- data.frame(moyenne= moyenneLog, mediane = medianeLog, quartile0 = quantileLog[,1], quartile25 = quantileLog[,2], quartile50 = quantileLog[,3], quartile75 = quantileLog[,4], quartile100 = quantileLog[,5] ,max = maxRaw, min = minLog,NombreZeros = zeroLog, row.names = colnames(log2count.table))
-```
-Summary of the statitics of the log2-transformed counts into the dataframe named "dataLogStatistics".
+
+
 
 
