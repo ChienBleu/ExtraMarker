@@ -35,7 +35,7 @@ In the second part, two machine learning methods will be evaluated to classify h
 In order to download some files, a path must be specified for the rest of the project to work correctly.
 
 ```{r}
-setwd("/home/zac/Desktop/ExtraMarker/")
+setwd("~/Desktop/2/ExtraMarker-master/")
 ```
 
 ## Differential expression analysis
@@ -300,5 +300,113 @@ plot(all.data[,var.order[1]], all.data[,var.order[2]], col = colors, pch = 19,
      ylab = colnames(all.data)[var.order[2]])
 ```
 
+Here we see that the two genes with the most variance in the dataset work poorly to partitionate the two classes.
+
+#### ANOVA feature selection
+
+A more sophisticated feature selection test would be to use the ANOVA method.
+This computation is long and could take some minutes to achieve. To speed up the process, a parallelisation is set but the code needed to run it on one core is still available in comment if no parallelisation is possible on your computer.
+
+```{r}
+# A function is created for computing ANOVA for some samples of one gene expression
+mult.anova <- function(g.expr, phenotypes){
+  # A data frame is created that contains the expression and phenotypes for each sample
+  g.for.anova <- data.frame("expr"=g.expr, "group"=phenotypes)
+  # We then try the indirect approach: fit a linear model and run anova on it
+  g.anova.result <- anova(lm(formula = expr ~ group, data = g.for.anova))
+  # The p value is extracted and returned
+  pval <- as.numeric(unlist(g.anova.result)["Pr(>F)1"])
+  return(pval)
+}
+library(parallel)
+# Calculate the number of cores, by default we choose to leave one core unused for the system
+no_cores <- detectCores() - 1
+# Initiate cluster
+cl <- makeCluster(no_cores)
+# Computation of the p-values
+pvals <- parApply(cl, all.data, 2, mult.anova, phenotypes = phenotypes)
+stopCluster(cl)
+# If no parallelisation is possible run the line below instead
+# pvals <- apply(all.data, 2, mult.anova, phenotypes = phenotypes)
+```
+
+And now we plot the two genes with the lowest p-values.
+```{r}
+p.vals.order <- order(pvals)
+# Plot of the two genes with the lowest p-values
+plot(all.data[,p.vals.order[1]], all.data[,p.vals.order[2]], col = colors, pch = 19,
+     main = "Plot of the two genes with the lowest p-values", xlab = colnames(all.data)[p.vals.order[1]],
+     ylab = colnames(all.data)[p.vals.order[2]])
+```
+
+Here we see this method is a lot more effective than the previous one. The two classes are effectively separated by the two genes.
+
+### Two classifiers
+
+The goal of the rest of this study will be to compare two supervised classifiers with and without feature selection. The two machine learning methods we will compare are k-nearest-neighbour and random-forest. We will evaluate each method by using a k-fold cross validation and measure their error rates.
+
+#### Random Forest
+
+Random forest is a powerful classifier that uses its internal logic to select features that make the most potential out of a decision tree. To do so, hundreds of trees are used and randomised to find the optimal configuration.
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+# We load the random forest library
+library(randomForest)
+# We load the caret library that contains a function for making folds
+library(caret)
+library(MASS)
+```
+
+##### With feature selection
+
+For each variation of machine learning method and feature selection, we would also like to determine the number of feature (selected or not) that will be taken in account. That's why the process will be reiterated with an increasing number of variables.
+
+```{r}
+
+random.forest.run <- function(x, data, folds){
+  error.rates <- c()
+  for(j in 1:length(folds)){
+    test <- data[folds[[j]],]
+    train <- data[-folds[[j]],]
+    #model <- randomForest::randomForest(phenotypes ~ ., train)
+    #model <- MASS::lda(phenotypes ~ ., train)
+    predictions <- class::knn(train[,-ncol(train)], test[,-ncol(test)], train$phenotype)
+    #predictions <- predict(model, test[,-ncol(test)])
+    error.rates <- c(error.rates, sum(predictions != test$phenotypes)/ nrow(data))
+  }
+  return(mean(error.rates))
+}
+
+random.forest.evaluation <- function(data, k.folds, rep){
+  folds <- createFolds(phenotypes, k = k.folds, list = TRUE, returnTrain = FALSE)
+  cl <- makeCluster(no_cores)
+  error.rates <- parLapply(cl, 1:rep, random.forest.run, data = data, folds = folds)
+  stopCluster(cl)
+  return(error.rates)
+}
+```
 
 
+```{r}
+start <- Sys.time()
+error.rates <- c()
+for(k in 1:9){
+  selected.data <- all.data[, p.vals.order[1:(2**k)]]
+  selected.data$phenotypes <- phenotypes
+  error.rates <- c(error.rates, mean(unlist(random.forest.evaluation(selected.data, 63, 2))))
+}
+print(Sys.time() - start)
+plot(error.rates, type = 'l')
+```
+
+##### Without feature selection
+
+```{r}
+mean.error.rates <- c()
+for(k in 1:8){
+  selected.data <- all.data[, sample(colnames(all.data), 2**k)]
+  selected.data$phenotypes <- phenotypes
+  mean.error.rates <- c(mean.error.rates, mean(random.forest.evaluation(selected.data, 5, 10)))
+}
+plot(mean.error.rates, type = 'l')
+```
